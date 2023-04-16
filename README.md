@@ -124,6 +124,23 @@ RSpec.configure do |config|
 end
 ```
 
+Create a simple Model(Attributes: name, email & password)
+```
+rails g model user name email pasword_digest && rails db:create db:migrate
+```
+
+Uncomment bcrypt & bundle
+```
+bundle
+```
+
+Add validations to user.rb:
+```
+has_secure_password
+
+validates :email, presence: true, uniqueness: true, format: {with: URI::MailTo::EMAIL_REGEXP}
+validates :name, presence: true
+```
 
 ##### Contacts:
 * Email: elibiz443@gmail.com
