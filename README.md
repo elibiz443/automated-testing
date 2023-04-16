@@ -96,7 +96,7 @@ ii) Setup DatabaseCleaner:
 
 Run:
 ```
-touch spec/support/factory_bot.rb
+touch spec/support/database_cleaner.rb
 ```
 Then Add the following to spec/support/factory_bot.rb file: 
 
