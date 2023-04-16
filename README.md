@@ -14,7 +14,7 @@ git clone git@github.com:elibiz443/automated-testing.git && bundle && rails db:c
 
 ### The making of the app:
 
-1. Create a new web application:
+1. Create a new API:
 
 I start by runing in terminal:
 ```
