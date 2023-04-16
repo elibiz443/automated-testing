@@ -126,7 +126,7 @@ end
 
 Create a simple Model(Attributes: name, email & password)
 ```
-rails g model user name email pasword_digest && rails db:create db:migrate
+rails g model user name email password_digest && rails db:create db:migrate
 ```
 
 Uncomment bcrypt & bundle
@@ -136,10 +136,58 @@ bundle
 
 Add validations to user.rb:
 ```
-has_secure_password
+  has_secure_password
+  validates :email, presence: true, uniqueness: true, format: {with: URI::MailTo::EMAIL_REGEXP}
+  validates :name, presence: true
+```
 
-validates :email, presence: true, uniqueness: true, format: {with: URI::MailTo::EMAIL_REGEXP}
-validates :name, presence: true
+Set up validation test:
+In spec/models/user_spec.rb, add:
+```
+require 'rails_helper'
+
+RSpec.describe User, type: :model do
+  describe "validations" do
+    let(:user) { build(:user) }
+
+    it "is valid with valid attributes" do
+      expect(user).to be_valid
+    end
+
+    it "is not valid without a name" do
+      user.name = nil
+      expect(user).not_to be_valid
+    end
+
+    it "is not valid without a unique email" do
+      existing_user = create(:user)
+      user.email = existing_user.email
+      expect(user).not_to be_valid
+    end
+
+    it "is not valid without a password" do
+      user.password = nil
+      expect(user).not_to be_valid
+    end
+  end
+end
+```
+In spec/factories.rb, add:
+```
+# spec/factories.rb
+
+FactoryBot.define do
+  factory :user do
+    name { Faker::Name.name }
+    email { Faker::Internet.email }
+    password { 'password' }
+    password_confirmation { 'password' }
+  end
+end
+```
+In terminal, Run:
+```
+spec
 ```
 
 ##### Contacts:
