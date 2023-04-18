@@ -353,6 +353,8 @@ RSpec.describe "Api::V1::Users", type: :request do
 end
 ```
 
+## Version Two
+
 We're going to create api/v2/users_controller.rb where we will add the following:
 
 * jwt gem (For token based authentication)
