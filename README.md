@@ -1,6 +1,6 @@
 # AUTOMATED-TESTING
 
-This is an API 7 Simple Authentication app that tackles testing CRUD functionality Using:
+This is a Rails 7 API for Simple Authentication app that tackles testing CRUD functionality Using:
 * RSpec
 * FactoryBot
 * Faker
