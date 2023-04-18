@@ -26,3 +26,5 @@ end
 group :development do
   # gem "spring"
 end
+
+gem "jwt"

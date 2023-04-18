@@ -353,6 +353,155 @@ RSpec.describe "Api::V1::Users", type: :request do
 end
 ```
 
+We're going to create api/v2/users_controller.rb where we will add the following:
+
+* jwt gem (For token based authentication)
+* shoulda-matchers gem (So as to provide one-liners to test common Rails functionality )
+
+And we are also going to add sessions_controller for authentication.
+
+Start by running the following in terminal:
+```
+rails g model AuthToken token_digest user:references && rails db:migrate && rails g controller api/v2/sessions && touch app/controllers/base_controller.rb
+```
+
+Remember to modify api/v2/sessions_controller.rb, api/v2/users_controller.rb, user.rb, config/routes.rb and base_controller.rb to look as follows:
+```
+# api/v2/sessions_controller.rb
+class Api::V2::SessionsController < BaseController
+  before_action :authenticate_user!, except: [:create]
+
+  def create
+    user = User.find_by(email: params[:email])
+    if user&.authenticate(params[:password])
+      token = user.generate_auth_token
+      render json: { token: token, message: "Welcome #{user.name} 👍", user: user }, status: :ok
+    else
+      render json: { error: "Invalid email or password" }, status: :unauthorized
+    end
+  end
+
+  def destroy
+    @current_user.invalidate_token
+    head :ok
+  end
+end
+
+# api/v2/users_controller.rb
+class Api::V2::UsersController < BaseController
+  before_action :set_user, only: [:show, :update, :destroy]
+  before_action :authenticate_user!, except: [:create]
+
+  def index
+    render json: { users: User.all }
+  end
+
+  def show
+    render json: { user: @user }, status: :ok
+  end
+
+  def create
+    @user = User.new(user_params)
+
+    if @user.save
+      token = @user.generate_auth_token
+      render json: { message: "User created successfully 👍", token: token, user: @user }, status: :created
+    else
+      render json: { errors: @user.errors.full_messages }, status: :unprocessable_entity
+    end
+  end
+
+  def update
+    if @user.update(user_params)
+      render json: { message: "User updated successfully 👍", User: @user }, status: :ok
+    else
+      render json: { errors: @user.errors.full_messages }, status: :unprocessable_entity
+    end
+  end
+
+  def destroy
+    @user.destroy
+    render json: { message: "User deleted successfully ❌" }, status: :ok
+  end
+
+  private
+
+  def set_user
+    @user = User.find(params[:id])
+  end
+
+  def user_params
+    params.permit(:name, :email, :password, :password_confirmation)
+  end
+end
+
+# base_controller.rb
+class BaseController < ActionController::API
+  before_action :authenticate_user!
+
+  private
+
+  def authenticate_user!
+    token = request.headers["Authorization"]&.split(' ')&.last
+    user = User.find_by_token(token)
+    if user.nil?
+      render json: { error: "Invalid token" }, status: :unauthorized
+    else
+      @current_user = user
+    end
+  end
+end
+
+#user.rb
+class User < ApplicationRecord
+  has_one :auth_token, dependent: :destroy
+  
+  has_secure_password
+  validates :email, presence: true, uniqueness: true, format: {with: URI::MailTo::EMAIL_REGEXP}
+  validates :name, presence: true
+
+  default_scope {order('users.created_at ASC')}
+
+  def generate_auth_token
+    secret_key = Rails.application.secret_key_base
+    payload = { user_id: self.id }
+    token = JWT.encode(payload, secret_key)
+    AuthToken.create(user: self, token_digest: token)
+    token
+  end
+
+  def self.find_by_token(token)
+    begin
+      decoded_payload = JWT.decode(token, Rails.application.secret_key_base)[0]
+      User.find(decoded_payload['user_id'])
+    rescue JWT::DecodeError
+      nil
+    end
+  end
+
+  def invalidate_token
+    auth_token.destroy
+  end
+end
+
+#routes.rb
+Rails.application.routes.draw do
+  namespace :api do
+    namespace :v1 do
+      resources :users
+    end
+  end
+
+  namespace :api do
+    namespace :v2 do
+      resources :users
+      post "/login", to: "sessions#create"
+      delete "/logout", to: "sessions#destroy"
+    end
+  end
+end
+```
+
 ##### Contacts:
 * Email: elibiz443@gmail.com
 * Phone/WhatsApp: +254768998781
