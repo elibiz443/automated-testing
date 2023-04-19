@@ -504,6 +504,9 @@ Rails.application.routes.draw do
 end
 ```
 
+Now that everything is perfect, we can add tests to the controller we added and modify validation tests as follows:
+
+
 ##### Contacts:
 * Email: elibiz443@gmail.com
 * Phone/WhatsApp: +254768998781
