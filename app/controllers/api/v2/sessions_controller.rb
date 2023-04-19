@@ -7,7 +7,7 @@ class Api::V2::SessionsController < BaseController
       token = user.generate_auth_token
       render json: { token: token, message: "Welcome #{user.name} 👍", user: user }, status: :ok
     else
-      render json: { error: "Invalid email or password" }, status: :unauthorized
+      render json: { error: "Invalid email or password ❌" }, status: :unauthorized
     end
   end
 
