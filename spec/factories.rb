@@ -7,4 +7,9 @@ FactoryBot.define do
     password { 'password' }
     password_confirmation { 'password' }
   end
+
+  factory :auth_token do
+    association :user
+    token_digest { JWT.encode({ user_id: user.id }, Rails.application.secret_key_base) }
+  end
 end
