@@ -9,7 +9,7 @@ This is a Rails 7 API for Simple Authentication app that tackles testing CRUD fu
 
 ### Steps to run the app:
 ```
-git clone git@github.com:elibiz443/automated-testing.git && bundle && rails db:create db:migrate
+git clone git@github.com:elibiz443/automated-testing.git && bundle && rails db:create db:migrate db:seed
 ```
 
 ### The making of the app:
@@ -504,8 +504,270 @@ Rails.application.routes.draw do
 end
 ```
 
-Now that everything is perfect, we can add tests to the controller we added and modify validation tests as follows:
+Now that everything is perfect, we can add/modify tests to the controllers we added as follows:
+```
+# spec/requests/api/v2/users_spec.rb
 
+require 'rails_helper'
+
+RSpec.describe "Api::V2::Users", type: :request do
+  let(:user) { FactoryBot.create(:user) }
+  let(:valid_attributes) { FactoryBot.attributes_for(:user) }
+  let(:invalid_attributes) { FactoryBot.attributes_for(:user, email: '') }
+  let(:new_attributes) { FactoryBot.attributes_for(:user, name: "Jane") }
+  let!(:user_to_delete) { FactoryBot.create(:user) }
+  let(:auth_token) { FactoryBot.create(:auth_token) }
+  let!(:token) { { "Authorization" => "Bearer #{ auth_token.token_digest }" } }
+
+  describe "GET #index" do
+    it "returns a success response" do
+      get "/api/v2/users", headers: token
+      expect(response).to have_http_status(:ok)
+    end
+  end
+
+  describe "GET #show" do
+    it "returns a success response" do
+      get "/api/v2/users/#{user.to_param}", headers: token
+      expect(response).to have_http_status(:ok)
+    end
+  end
+
+  describe "POST #create" do
+    context "with valid user params" do
+      it "creates a new user" do
+        expect {
+          post "/api/v2/users", params: valid_attributes 
+        }.to change(User, :count).by(1)
+      end
+
+      it "returns a success response" do
+        post "/api/v2/users", params: valid_attributes
+        expect(response).to have_http_status(:created)
+      end
+
+      it "returns a success message" do
+        post "/api/v2/users", params: valid_attributes
+        expect(response.body).to include("User created successfully 👍")
+      end
+
+      it "returns the created user" do
+        post "/api/v2/users", params: valid_attributes 
+        expect(JSON.parse(response.body)["user"]).to be_present
+      end
+    end
+
+    context "with invalid user params" do
+      it "does not create a new user" do
+        expect { post "/api/v2/users", params: invalid_attributes }.to_not change(User, :count)
+      end
+      
+      it "returns status code 422" do
+        post "/api/v2/users", params: invalid_attributes
+        expect(response).to have_http_status(422)
+      end
+      
+      it "returns an error message" do
+        post "/api/v2/users", params: invalid_attributes
+        expect(JSON.parse(response.body)["errors"]).to be_present
+      end
+    end
+  end
+
+  describe "PUT #update" do
+    context "with valid params" do
+      it "updates the requested user" do
+        put "/api/v2/users/#{user.id}", params: new_attributes, headers: token
+        user.reload
+        expect(user.name).to eq("Jane")
+      end
+
+      it "returns a success response" do
+        put "/api/v2/users/#{user.id}", params: valid_attributes, headers: token
+        expect(response).to have_http_status(:ok)
+      end
+    end
+
+    context "with invalid params" do
+      it "returns an unprocessable entity response" do
+        put "/api/v2/users/#{user.id}", params: invalid_attributes, headers: token
+        expect(response).to have_http_status(:unprocessable_entity)
+      end
+    end
+  end
+
+  describe "DELETE #destroy" do
+    it "destroys the requested user" do
+      expect { delete "/api/v2/users/#{user_to_delete.id}", headers: token }.to change(User, :count).by(-1)
+    end
+
+    it "returns a success response" do
+      delete "/api/v2/users/#{user.id}", headers: token
+      expect(response).to have_http_status(:ok)
+    end
+  end
+end
+
+# spec/requests/api/v2/sessions_spec.rb
+
+require 'rails_helper'
+
+RSpec.describe "Api::V2::Sessions", type: :request do
+  let(:user) { FactoryBot.create(:user) }
+  let(:auth_token) { FactoryBot.create(:auth_token) }
+  let!(:token) { { "Authorization" => "Bearer #{ auth_token.token_digest }" } }
+
+  describe "POST /api/v2/sessions" do
+    context "with valid credentials" do
+      it "returns a success response with an authentication token" do
+        post "/api/v2/login", params: { email: user.email, password: user.password }
+        expect(response).to have_http_status(:ok)
+        expect(response.body).to include("token")
+      end
+    end
+
+    context "with invalid credentials" do
+      it "returns an unauthorized response" do
+        post "/api/v2/login", params: { email: user.email, password: "wrong_password" }
+        expect(response).to have_http_status(:unauthorized)
+        expect(response.body).to include("Invalid email or password ❌")
+      end
+    end
+  end
+
+  describe "DELETE /api/v2/sessions" do
+    it "invalidates the user's authentication token and returns a success response" do
+      delete "/api/v2/logout", headers: token
+      expect(response).to have_http_status(:ok)
+      expect(user.reload.auth_token).to be_nil
+      expect(response.body).to include("Logged Out!")
+    end
+
+    it "requires authentication" do
+      delete "/api/v2/logout"
+      expect(response).to have_http_status(:unauthorized)
+    end
+  end
+end
+
+# spec/models/auth_token_spec.rb
+
+require 'rails_helper'
+
+RSpec.describe "Api::V2::Sessions", type: :request do
+  let(:user) { FactoryBot.create(:user) }
+  let(:auth_token) { FactoryBot.create(:auth_token) }
+  let!(:token) { { "Authorization" => "Bearer #{ auth_token.token_digest }" } }
+
+  describe "POST /api/v2/sessions" do
+    context "with valid credentials" do
+      it "returns a success response with an authentication token" do
+        post "/api/v2/login", params: { email: user.email, password: user.password }
+        expect(response).to have_http_status(:ok)
+        expect(response.body).to include("token")
+      end
+    end
+
+    context "with invalid credentials" do
+      it "returns an unauthorized response" do
+        post "/api/v2/login", params: { email: user.email, password: "wrong_password" }
+        expect(response).to have_http_status(:unauthorized)
+        expect(response.body).to include("Invalid email or password ❌")
+      end
+    end
+  end
+
+  describe "DELETE /api/v2/sessions" do
+    it "invalidates the user's authentication token and returns a success response" do
+      delete "/api/v2/logout", headers: token
+      expect(response).to have_http_status(:ok)
+      expect(user.reload.auth_token).to be_nil
+      expect(response.body).to include("Logged Out!")
+    end
+
+    it "requires authentication" do
+      delete "/api/v2/logout"
+      expect(response).to have_http_status(:unauthorized)
+    end
+  end
+end
+
+# spec/models/auth_token_spec.rb
+
+require 'rails_helper'
+
+RSpec.describe User, type: :model do
+  subject { build(:user) }
+  let(:user) { FactoryBot.create(:user) }
+  let(:token) { JWT.encode({ user_id: user.id }, Rails.application.secret_key_base) }
+
+  describe "Valid FactoryBot" do 
+    it "has a valid factory" do
+      expect(FactoryBot.create(:user)).to be_valid
+    end
+  end
+
+  describe "associations" do
+    it { should have_one(:auth_token).dependent(:destroy) }
+  end
+
+  describe "validations" do
+    it { should be_valid }
+    it { should validate_presence_of(:name) }
+    it { should validate_presence_of(:email) }
+    it { should validate_uniqueness_of(:email).case_insensitive }
+    it { should validate_presence_of(:password) }
+    it { should validate_length_of(:password).is_at_least(6) }
+    it { should validate_presence_of(:password_confirmation) }
+    it { should validate_length_of(:password_confirmation).is_at_least(6) }
+  end
+
+  describe "Generating auth_token" do
+    it "creates an auth token for the user" do
+      expect { user.generate_auth_token }.to change { AuthToken.count }.by(1)
+      expect(user.auth_token).to be_present
+    end
+
+    it "returns a JWT token" do
+      token = user.generate_auth_token
+      expect(token).to be_a(String)
+      expect(token).not_to be_blank
+    end
+  end
+
+  describe "Find By Token" do
+    it "returns the user for a valid token" do
+      expect(User.find_by_token(token)).to eq(user)
+    end
+
+    it "returns nil for an invalid token" do
+      expect(User.find_by_token("invalid_token")).to be_nil
+    end
+  end
+
+  describe "Invalidate token" do
+    it "destroys the user's auth token" do
+      user.generate_auth_token
+      expect { user.invalidate_token }.to change { AuthToken.count }.by(-1)
+      expect(user.auth_token).to be_nil
+    end
+  end
+end
+```
+
+N/B: shoulda-matchers gem was added to development test group and shoulda.rb file was added to spec/support directory. Also add the following to spec/rails_helper.rb:
+```
+require 'shoulda/matchers'
+require 'support/shoulda'
+```
+
+## Third Section
+We are going to add home to our app. This is the section that will be accessed after authentication.
+
+Start by:
+```
+rails g model home detail && rails db:migrate && rails g controller home index
+```
 
 ##### Contacts:
 * Email: elibiz443@gmail.com
