@@ -769,6 +769,55 @@ Start by:
 rails g model home detail && rails db:migrate && rails g controller home index
 ```
 
+Add the following cod:
+```
+# models/home.rb
+class Home < ApplicationRecord
+  validates :detail, presence: true
+end
+
+# controllers/home_controller.rb
+class HomeController < BaseController
+  before_action :authenticate_user!
+
+  def index
+    render json: { home: Home.all }
+  end
+end
+
+# spec/models/home_spec.rb
+require 'rails_helper'
+
+RSpec.describe Home, type: :model do
+  describe "validations" do
+    it { should validate_presence_of(:detail) }
+  end
+end
+
+# spec/requests/home_spec.rb
+require 'rails_helper'
+
+RSpec.describe "Homes", type: :request do
+  let(:auth_token) { FactoryBot.create(:auth_token) }
+  let!(:token) { { "Authorization" => "Bearer #{ auth_token.token_digest }" } }
+  
+  describe "GET #index" do
+    it "returns a success response" do
+      get "/api/v2/users", headers: token
+      expect(response).to have_http_status(:ok)
+    end
+  end
+end
+```
+
+###### That's it. Voilà. Happy coding 🙌 
+
+Additional:
+Accessing Test Console:
+```
+RAILS_ENV=test rails c
+```
+
 ##### Contacts:
 * Email: elibiz443@gmail.com
 * Phone/WhatsApp: +254768998781
